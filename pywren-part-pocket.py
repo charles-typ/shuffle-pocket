@@ -196,8 +196,8 @@ def partition_data():
     inputsPerTask = int(sys.argv[2])
     numPartitions = int(sys.argv[3])
     taskPerRound = int(sys.argv[4])
-    pocketnode = sys.argv[5]
-    rate = int(sys.argv[6])
+    #pocketnode = sys.argv[5]
+    rate = int(sys.argv[5])
 
     keylist = []
 
@@ -205,7 +205,7 @@ def partition_data():
         keylist.append({'taskId': i,
                         'inputs': inputsPerTask,
                         'parts': numPartitions,
-                        'pocket': pocketnode,
+                        #'pocket': pocketnode,
                         'taskPerRound': taskPerRound,
                         'bucket': "yupengtang-pywren-49"})
 
