@@ -18,13 +18,15 @@ if __name__ == "__main__":
         pywren.wrenlogging.default_config()
         logger = logging.getLogger(__name__)
 
+        logging.info("Inserting this function")
         m = hashlib.md5()
         genpart = str(random.choice(range(50)))
         m.update(genpart.encode('utf-8'))
         #genfile = m.hexdigest()[:8] + "-gensort-" + genpart
         genfile="gensort"
         client = boto3.client('s3', 'us-west-2')
-        client.download_file('yupengtang-pywren-891', genfile, '/tmp/gensort')
+        client.download_file('yupeng-pywren', genfile, '/tmp/gensort')
+        logging.info("Downloaded the file")
         subprocess.check_output(["chmod", "a+x", "/tmp/gensort"])
 
         for i in range(0, 5):
@@ -39,7 +41,7 @@ if __name__ == "__main__":
             m.update(keyname.encode('utf-8'))
             randomized_keyname = "input/" + m.hexdigest()[:8] + "-part-" + str(key)
             put_start = time.time()
-            client.put_object(Body=data, Bucket="yupengtang-pywren-891", Key=randomized_keyname)
+            client.put_object(Body=data, Bucket="yupeng-pywren", Key=randomized_keyname)
             put_end = time.time()
             logger.info(str(key) + " th object uploaded using " + str(put_end - put_start) + " seconds.")
             gc.collect()
