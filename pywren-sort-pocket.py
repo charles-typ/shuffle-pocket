@@ -10,9 +10,9 @@ from multiprocessing.pool import ThreadPool
 import boto3
 import numpy as np
 import pywren
-from redis import StrictRedis
+import pocket
 from six.moves import cPickle as pickle
-
+from random import randint
 
 def sort_data():
     def run_command(key):
@@ -29,15 +29,20 @@ def sort_data():
         rounds = key['works']
         numPartitions = int(key['parts'])
 
+        jobid_int = randint(0, 1000000)
+        pocket_job_name = "partition" + str(jobid_int)
+        jobid = pocket.register_job(pocket_job_name, capacityGB=1)
+        pocket_namenode = pocket.connect("10.1.0.10", 9070)
+
         # 10 bytes for sorting
         recordType = np.dtype([('key', 'S10'), ('value', 'S90')])
 
         client = boto3.client('s3', 'us-west-2')
-        rs = []
-        for hostname in key['redis'].split(";"):
-            r1 = StrictRedis(host=hostname, port=6379, db=0).pipeline()
-            rs.append(r1)
-        nrs = len(rs)
+        # rs = []
+        # for hostname in key['redis'].split(";"):
+        #     r1 = StrictRedis(host=hostname, port=6379, db=0).pipeline()
+        #     rs.append(r1)
+        # nrs = len(rs)
 
         [t1, t2, t3] = [time.time()] * 3
         [read_time, work_time, write_time] = [0] * 3
@@ -48,19 +53,17 @@ def sort_data():
         clients = []
         number_of_clients = int(number_of_clients)
         for client_id in range(number_of_clients):
-            clients.append(boto3.client('s3', 'us-east-2'))
+            clients.append(boto3.client('s3', 'us-west-2'))
         write_pool_handler_container = []
         rounds = int(rounds)
         logger.info("number of rounds here here here" + str(rounds))
         for roundIdx in range(rounds):
-            logger.info("HHHHHHH 1")
             inputs = []
 
             def read_work(reader_key):
                 client_id = reader_key['client_id']
                 reduceId = rounds * taskId + reader_key['roundIdx']
                 key_per_client = reader_key['key-per-client']
-                logger.info("HHHHHHH 4")
                 key_per_client = int(key_per_client)
                 client_id = int(client_id)
                 for mapId in range(key_per_client * client_id, min(key_per_client * (client_id + 1), numPartitions)):
@@ -70,37 +73,30 @@ def sort_data():
                     m.update(keyname.encode('utf-8'))
                     randomized_keyname = "shuffle/" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(reduceId)
                     logging.info("The name of the key to read is: " + randomized_keyname)
-                    logger.info("HHHHHHH 5")
                     try:
-                        ridx = int(m.hexdigest()[:8], 16) % nrs
-                        rs[ridx].get(randomized_keyname)
+                        textback = ""
+                        # FIXME set datasize
+                        datasize = 10
+                        pocket.get_buffer(pocket_namenode, randomized_keyname, textback, datasize, jobid)
                     except Exception:
                         logger.info("reading error key " + randomized_keyname)
                         raise
-                logger.info("HHHHHHH 6")
-                for r in rs:
-                    logger.info("HHHHHHH 7")
-                    objs = r.execute()
-                    logger.info("HHHHHHH 8")
-                    data = [np.fromstring(obj, dtype=recordType) for obj in objs]
-                    logger.info("HHHHHHH 9")
-                    [d.sort(order='key') for d in data]
-                    logger.info("HHHHHHH 10")
-                    inputs.extend(data)
+
+                data = [np.fromstring(obj, dtype=recordType) for obj in objs]
+                logger.info("HHHHHHH 9")
+                [d.sort(order='key') for d in data]
+                inputs.extend(data)
 
 
             reader_keylist = []
             key_per_client = (numPartitions + number_of_clients - 1) / number_of_clients
             number_of_clients = int(number_of_clients)
-            logger.info("HHHHHHH 2")
             for client_id in range(number_of_clients):
                 reader_keylist.append({'roundIdx': roundIdx,
                                        'client_id': client_id,
                                        'key-per-client': key_per_client})
 
-            logger.info("HHHHHHH 3")
             read_pool.map(read_work, reader_keylist)
-            logger.info("HHHHHHH 11")
             t1 = time.time()
             logger.info('read time ' + str(t1 - t3))
             read_time = t1 - t3
@@ -165,7 +161,7 @@ def sort_data():
                         'works': worksPerTask,
                         'redis': redisnode,
                         'parts': numPartitions,
-                        'bucket': "yupengtang-pywren-49"})
+                        'bucket': "yupeng-pywren"})
 
     wrenexec = pywren.default_executor()
     futures = wrenexec.map(run_command, keylist)
