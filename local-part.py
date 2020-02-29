@@ -1,35 +1,34 @@
 from __future__ import print_function
 
 import gc
+import logging
 import struct
 import sys
 import time
-import logging
 from multiprocessing.pool import ThreadPool
 
 import boto3
 from six.moves import cPickle as pickle
 import hashlib
 import numpy as np
-import pywren
 import pocket
+import pandas
 from base64 import b64encode
 
 
 
 def partition_data():
     def run_command(key):
-        pywren.wrenlogging.default_config('INFO')
         begin_of_function = time.time()
         logger = logging.getLogger(__name__)
-        logger.info("taskId = " + str(key['taskId']))
-        #logger.info("number of inputs = " + str(key['inputs']))
-        #logger.info("number of output partitions = " + str(key['parts']))
+        print("taskId = " + str(key['taskId']))
+        print("number of inputs = " + str(key['inputs']))
+        print("number of output partitions = " + str(key['parts']))
         # TODO: make the parameters configurable
         taskId = key['taskId']
         # 1T
         #totalInputs = 10000
-        totalInputs = key['total_input']
+        totalInputs = 5
         inputsPerTask = key['inputs']
         taskPerRound = key['taskPerRound']
         rounds = (inputsPerTask + taskPerRound - 1) / taskPerRound
@@ -38,25 +37,25 @@ def partition_data():
 
         jobid_int = int(key['job_number'])
         pocket_job_name = "job" + str(jobid_int)
-        #logger.info("Pocket job name " + pocket_job_name)
+        print("Pocket job name " + pocket_job_name)
         #jobid = pocket.register_job(pocket_job_name, capacityGB=1)
         jobid = pocket_job_name
-        #logger.info("(" + str(taskId) + ")" + "Finish registering job")
+        print("(" + str(taskId) + ")" + "Finish registering job")
         pocket_namenode = pocket.connect("10.1.0.10", 9070)
 
-        #logger.info("(" + str(taskId) + ")" + "Connecting namenode job")
-        #logger.info("See the number of partitions: " + str(numPartitions))
+        print("(" + str(taskId) + ")" + "Connecting namenode job")
+        print("See the number of partitions: " + str(numPartitions))
         min_value = struct.unpack(">I", b"\x00\x00\x00\x00")[0]
         max_value = struct.unpack(">I", b"\xff\xff\xff\xff")[0]
 
         rangePerPart = int((max_value - min_value) / numPartitions)
-        #logger.info("here 1 " + str(rangePerPart))
+        print("here 1 " + str(rangePerPart))
 
         keyType = np.dtype([('key', 'S4')])
         # 4 bytes good enough for partitioning
         recordType = np.dtype([('key', 'S4'), ('value', 'S96')])
 
-        #logger.info("here 2")
+        print("here 2")
         boundaries = []
         # (numPartitions-1) boundaries
         for i in range(1, numPartitions):
@@ -66,7 +65,7 @@ def partition_data():
 
         client = boto3.client('s3', 'us-west-2')
 
-        #logger.info("(" + str(taskId) + ")" + "Connected s3 client")
+        print("(" + str(taskId) + ")" + "Connected s3 client")
         [t1, t2, t3] = [time.time()] * 3
         [read_time, work_time, write_time] = [0] * 3
         # a total of 10 threads
@@ -77,7 +76,7 @@ def partition_data():
         for client_id in range(number_of_clients):
             clients.append(boto3.client('s3', 'us-west-2'))
         write_pool_handler_container = []
-        #logger.info("(" + str(taskId) + ")" + "rounds" + str(rounds))
+        print("(" + str(taskId) + ")" + "rounds" + str(rounds))
         # manager = Manager()
         rounds = int(rounds)
         for roundIdx in range(rounds):
@@ -89,14 +88,14 @@ def partition_data():
                 m = hashlib.md5()
                 m.update(keyname.encode('utf-8'))
                 randomized_keyname = "input/" + m.hexdigest()[:8] + "-part-" + str(inputId)
-        #        logger.info("(" + str(taskId) + ")" + "fetching " + randomized_keyname)
+                print("(" + str(taskId) + ")" + "fetching " + randomized_keyname)
                 obj = client.get_object(Bucket=bucketName, Key=randomized_keyname)
-                logger.info("(" + str(taskId) + ")" + "fetching " + randomized_keyname + " done")
+                print("(" + str(taskId) + ")" + "fetching " + randomized_keyname + " done")
                 fileobj = obj['Body']
                 #data = np.fromstring(fileobj.read(), dtype=recordType)
                 data = np.frombuffer(fileobj.read(), dtype=recordType)
-        #        logger.info("(" + str(taskId) + ")" + "conversion " + randomized_keyname + " done")
-        #        logger.info("(" + str(taskId) + ")" + "size " + randomized_keyname + "  " + str(len(data)))
+                print("(" + str(taskId) + ")" + "conversion " + randomized_keyname + " done")
+                print("(" + str(taskId) + ")" + "size " + randomized_keyname + "  " + str(len(data)))
                 inputs.append(data)
 
             startId = taskId * inputsPerTask + roundIdx * taskPerRound
@@ -105,7 +104,7 @@ def partition_data():
             if len(inputIds) == 0:
                 break
 
-        #    logger.info("(" + str(taskId) + ")" + "Range for round " + str(roundIdx) + " is (" + str(startId) + "," + str(endId) + ")")
+            print("(" + str(taskId) + ")" + "Range for round " + str(roundIdx) + " is (" + str(startId) + "," + str(endId) + ")")
 
             read_keylist = []
             for i in range(len(inputIds)):
@@ -114,14 +113,14 @@ def partition_data():
 
             # before processing, make sure all data is read
             read_pool.map(read_work, read_keylist)
-            logger.info("(" + str(taskId) + ")" + "read call done ")
-        #    logger.info("(" + str(taskId) + ")" + "size of inputs" + str(len(inputs)))
+            print("(" + str(taskId) + ")" + "read call done ")
+            print("(" + str(taskId) + ")" + "size of inputs" + str(len(inputs)))
 
             records = np.concatenate(inputs)
             gc.collect()
 
             t1 = time.time()
-            logger.info("(" + str(taskId) + ")" + 'read time ' + str(t1 - t3))
+            print("(" + str(taskId) + ")" + 'read time ' + str(t1 - t3))
             read_time = t1 - t3
 
             if numPartitions == 1:
@@ -129,7 +128,7 @@ def partition_data():
             else:
                 ps = np.searchsorted(boundaries, records['key'])
             t2 = time.time()
-            logger.info("(" + str(taskId) + ")" + 'calculating partitions time: ' + str(t2 - t1))
+            print("(" + str(taskId) + ")" + 'calculating partitions time: ' + str(t2 - t1))
             # before processing the newly read data, make sure outputs are all written out
             if len(write_pool_handler_container) > 0:
                 write_pool_handler = write_pool_handler_container.pop()
@@ -137,9 +136,9 @@ def partition_data():
                 write_pool_handler.wait()
                 twait_end = time.time()
                 if twait_end - twait_start > 0.5:
-                    logger.info("(" + str(taskId) + ")" + 'write time = ' + str(twait_end - t3) + " slower than read " + str(t1 - t3))
+                    print("(" + str(taskId) + ")" + 'write time = ' + str(twait_end - t3) + " slower than read " + str(t1 - t3))
                 else:
-                    logger.info("(" + str(taskId) + ")" + 'write time < ' + str(twait_end - t3) + " faster than read " + str(t1 - t3))
+                    print("(" + str(taskId) + ")" + 'write time < ' + str(twait_end - t3) + " faster than read " + str(t1 - t3))
 
             t2 = time.time()
             gc.collect()
@@ -148,7 +147,7 @@ def partition_data():
             for idx, record in enumerate(records):
                 outputs[ps[idx]].append(record)
             t3 = time.time()
-            logger.info("(" + str(taskId) + ")" + 'paritioning time: ' + str(t3 - t2))
+            print("(" + str(taskId) + ")" + 'paritioning time: ' + str(t3 - t2))
             work_time = t3 - t1
 
             def write_work_client(writer_key):
@@ -159,23 +158,26 @@ def partition_data():
                 key_per_client = int(key_per_client)
                 client_id = int(client_id)
                 numPartitions = int(writer_key['num_partitions'])
-        #        logger.info("(" + str(taskId) + ")" + "range" + str(key_per_client) + " " + str(client_id) +  " " + str(numPartitions))
+                print("(" + str(taskId) + ")" + "range" + str(key_per_client) + " " + str(client_id) +  " " + str(numPartitions))
                 for i in range(key_per_client * client_id, min(key_per_client * (client_id + 1), numPartitions)):
                     keyname = "shuffle-part-" + str(mapId) + "-" + str(i)
                     m = hashlib.md5()
                     m.update(keyname.encode('utf-8'))
-                    randomized_keyname = "shuffle-" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(i)
-                    logger.info("The name of the key to write is: " + randomized_keyname)
-                    bytes_body = np.asarray(outputs[ps[i]]).tobytes()
-                    logger.info("Original size: " + str(len(bytes_body)))
+                    randomized_keyname = "shuffle-" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(i) + "ok"
+                    print("The name of the key to write is: " + randomized_keyname)
+                    bytes_body = np.asarray(outputs[ps[i]]).tostring()
+                    print("Hey top top " + str(len(bytes_body)))
+                    #print(body)
+                    #body = bytes_body.decode('ascii')
                     body = b64encode(bytes_body).decode('utf-8')
-                    logger.info("B64 encode size: " + str(len(body)))
-                    datasize = 20000000
-                    body = body.ljust(datasize, '.')
-                    logger.info("Byte to be written: " + str(len(body)))
-                    logger.info("Last ten bits after padding: " + body[-10:])
+                    half = len(body)
+                    print("Hey top")
+                    print("Byte to be written: " + str(len(body)))
+                    print("Hey bottom")
                     pocket.put_buffer(pocket_namenode, body, len(body), randomized_keyname, jobid)
-                    logger.info("Successful put buffer")
+                    datasize = 1024
+                    text  = 'a' * datasize
+                    #r = pocket.put_buffer(pocket_namenode, text, datasize, randomized_keyname, jobid)
 
             writer_keylist = []
             key_per_client = (numPartitions + number_of_clients - 1) / number_of_clients
@@ -186,21 +188,28 @@ def partition_data():
                                        'key-per-client': key_per_client,
                                        'num_partitions': numPartitions})
 
-            write_pool_handler = write_pool.map_async(write_work_client, writer_keylist)
-            write_pool_handler_container.append(write_pool_handler)
+            for i in range(number_of_clients):
+                write_work_client(writer_keylist[i])
+            #write_pool_handler = write_pool.map_async(write_work_client, writer_keylist)
+            #write_pool_handler_container.append(write_pool_handler)
 
         #pocket.deregister_job(jobid)
         if len(write_pool_handler_container) > 0:
             write_pool_handler = write_pool_handler_container.pop()
             write_pool_handler.wait()
             twait_end = time.time()
-            logger.info("(" + str(taskId) + ")" + 'last write time = ' + str(twait_end - t3))
+            print("(" + str(taskId) + ")" + 'last write time = ' + str(twait_end - t3))
             write_time = twait_end - t3
         read_pool.close()
+        print("(" + str(taskId) + ")" + "closing read pool")
         write_pool.close()
+        print("(" + str(taskId) + ")" + "closing write pool")
         read_pool.join()
+        print("(" + str(taskId) + ")" + "read pool joined")
         write_pool.join()
+        print("(" + str(taskId) + ")" + "write pool joined")
         end_of_function = time.time()
+        print("(" + str(taskId) + ")" + "Exciting this function")
         return begin_of_function, end_of_function, read_time, work_time, write_time
 
     numTasks = int(sys.argv[1])
@@ -222,28 +231,13 @@ def partition_data():
                         'parts': numPartitions,
                         'taskPerRound': taskPerRound,
                         'bucket': "yupeng-pywren",
-                        'job_number': job_number,
-                        'total_input': numTasks})
-    wrenexec = pywren.default_executor()
-    futures = wrenexec.map(run_command, keylist)
+                        'job_number': job_number})
+
     print("Mapping all the functions")
+    for i in range(numTasks):
+        run_command(keylist[i])
 
-    pywren.wait(futures)
-    print("Waiting for futures")
-    results = [f.result() for f in futures]
-    #print(results)
-    print("part done")
-    run_statuses = [f.run_status for f in futures]
-    invoke_statuses = [f.invoke_status for f in futures]
-    #pocket.deregister_job(pocket_job_name)
-    print("job deregistered " + str(jobid))
-    res = {'results': results,
-           'run_statuses': run_statuses,
-           'invoke_statuses': invoke_statuses}
-    filename = "pocket-sort-part-con" + str(rate) + ".pickle.breakdown"
-    pickle.dump(res, open(filename, 'wb'))
-    return res
-
+    pocket.deregister_job(jobid)
 
 if __name__ == '__main__':
     partition_data()

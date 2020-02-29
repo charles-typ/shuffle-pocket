@@ -65,7 +65,7 @@ def register_job(jobname, num_lambdas=0, capacityGB=0, peakMbps=0, latency_sensi
     jobid = None
     print("Error registering job: ", err)
   else:
-    jobid = jobname + "-" + str(jobIdNum)
+    jobid = jobname
     print("Registered jobid ", jobid)
   sock.close()
   return jobid
