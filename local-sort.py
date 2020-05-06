@@ -73,13 +73,14 @@ def sort_data():
                     randomized_keyname = "shuffle-" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(reduceId)
                     print("The name of the key to read is: " + randomized_keyname)
                     try:
-                        datasize = 20000000
+                        datasize = 17000000
                         textback = " "*datasize
                         pocket.get_buffer(pocket_namenode, randomized_keyname, textback, datasize, jobid)
                         print("Successfully read")
-                        pos = textback.find('.')
-                        print("Padding position: " + str(pos))
-                        original_text = b64decode(textback[:pos].encode('utf-8'))
+                        #pos = textback.find('.')
+                        #print("Padding position: " + str(pos))
+                        original_text = b64decode(textback.encode('utf-8'))
+                        print("last ten bytes after padding: " + textback[-10:])
 
                         objs.append(original_text)
                     except Exception:

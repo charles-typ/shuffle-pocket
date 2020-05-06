@@ -13,6 +13,7 @@ import pywren
 import pocket
 from six.moves import cPickle as pickle
 from base64 import b64decode
+import time
 
 def sort_data():
     def run_command(key):
@@ -61,6 +62,8 @@ def sort_data():
                 key_per_client = reader_key['key-per-client']
                 key_per_client = int(key_per_client)
                 client_id = int(client_id)
+                taskID = int(reader_key['taskId'])
+                jobID = int(reader_key['jobid'])
                 objs = []
                 for mapId in range(key_per_client * client_id, min(key_per_client * (client_id + 1), numPartitions)):
                     # for mapId in range(1):
@@ -68,18 +71,23 @@ def sort_data():
                     m = hashlib.md5()
                     m.update(keyname.encode('utf-8'))
                     randomized_keyname = "shuffle-" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(reduceId)
-                    logger.info("The name of the key to read is: " + randomized_keyname)
+                    #logger.info("The name of the key to read is: " + randomized_keyname)
                     try:
                         # FIXME Need to set this stuff
-                        datasize = 20000000
-                        textback = " "*datasize
-                        pocket.get_buffer(pocket_namenode, randomized_keyname, textback, datasize, jobid, DELETE_AFTER_READ=True)
-                        logger.info("Successfully read")
-                        pos = textback.find('.')
-                        logger.info("Padding position: " + str(pos))
-                        original_text = b64decode(textback[:pos].encode('utf-8'))
+                        #datasize = 1300 * 1000
+                        datasize = 1310720
+                        logger.info("[POCKET] [" + str(jobID) +"] " + str(time.time_ns()) + " " + str(taskID) + " 0 read " + "S")
+                        r = pocket.get_buffer_bytes(pocket_namenode, randomized_keyname, datasize, jobid, DELETE_AFTER_READ=False)
+                        end_time = time.time_ns()
+                        #logger.info("Successfully read")
+                        #pos = textback.find('.')
+                        #logger.info("Padding position: " + str(pos))
+                        #logger.info("last ten bytes after padding: " + textback[-10:])
+                        #original_text = b64decode(textback.encode('utf-8'))
+                        logger.info("[POCKET] [" + str(jobID) + "] " + str(end_time) + " " + str(taskID) + " " + str(len(r)) + " read " + "E ")
+                        #logger.info("Size of original text: " + str(len(original_text)))
 
-                        objs.append(original_text)
+                        objs.append(r[:1300000])
                     except Exception:
                         logger.info("reading error key " + randomized_keyname)
                         raise
@@ -95,11 +103,13 @@ def sort_data():
             for client_id in range(number_of_clients):
                 reader_keylist.append({'roundIdx': roundIdx,
                                        'client_id': client_id,
-                                       'key-per-client': key_per_client})
+                                       'key-per-client': key_per_client,
+                                       'taskId': taskId,
+                                       'jobid': jobid_int})
 
             read_pool.map(read_work, reader_keylist)
             t1 = time.time()
-            logger.info('read time ' + str(t1 - t3))
+            #logger.info('read time ' + str(t1 - t3))
             read_time = t1 - t3
 
             if len(write_pool_handler_container) > 0:
@@ -120,7 +130,7 @@ def sort_data():
             records.sort(order='key', kind='mergesort')
 
             t3 = time.time()
-            logger.info('sort time: ' + str(t3 - t2))
+            #logger.info('sort time: ' + str(t3 - t2))
 
             work_time = t3 - t2
 
@@ -139,7 +149,7 @@ def sort_data():
             write_pool_handler = write_pool_handler_container.pop()
             write_pool_handler.wait()
             twait_end = time.time()
-            logger.info('last write time = ' + str(twait_end - t3))
+            #logger.info('last write time = ' + str(twait_end - t3))
             write_time = twait_end - t3
         read_pool.close()
         write_pool.close()
@@ -163,7 +173,7 @@ def sort_data():
                         'works': worksPerTask,
                         'redis': redisnode,
                         'parts': numPartitions,
-                        'bucket': "yupeng-pywren",
+                        'bucket': "yupeng-pywren-" + str(job_number),
                         'job_number': job_number})
 
     pocket_job_name = "job" + str(job_number)
@@ -173,7 +183,7 @@ def sort_data():
     pywren.wait(futures)
     results = [f.result() for f in futures]
     #print(results)
-    print("sort done")
+    print("sort done " + str(job_number))
     run_statuses = [f.run_status for f in futures]
     invoke_statuses = [f.invoke_status for f in futures]
 
@@ -181,10 +191,11 @@ def sort_data():
     res = {'results': results,
            'run_statuses': run_statuses,
            'invoke_statuses': invoke_statuses}
-    filename = "redis-sort-sort-con" + str(rate) + ".pickle.breakdown." + str(len(redisnode.split(";")))
+    filename = "redis-sort-con" + str(rate) + ".pickle.breakdown"
     pickle.dump(res, open(filename, 'wb'))
     return res
 
 
 if __name__ == '__main__':
     sort_data()
+    print(time.time())

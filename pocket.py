@@ -10,6 +10,7 @@ import struct
 import errno
 import libpocket
 from subprocess import call, Popen
+import time
 
 PORT = 2345
 HOSTNAME = "localhost"
@@ -46,28 +47,37 @@ def launch_dispatcher(crail_home_path):
 
 def register_job(jobname, num_lambdas=0, capacityGB=0, peakMbps=0, latency_sensitive=1):
   # connect to controller
-  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  sock.connect((CONTROLLER_IP, CONTROLLER_PORT))
+  #sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  #sock.connect((CONTROLLER_IP, CONTROLLER_PORT))
+  while True:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((CONTROLLER_IP, CONTROLLER_PORT))
+    # send register request to controller
+    msg_packer = struct.Struct(REQ_STRUCT_FORMAT + "i" + str(len(jobname)) + "s" + "iiih")
+    msgLen = REQ_LEN_HDR + INT + len(jobname) + 3*INT + SHORT
+    sampleMsg = (msgLen, TICKET, RPC_JOB_CMD, JOB_CMD, REGISTER_OPCODE, len(jobname), jobname.encode('utf-8'), \
+                   num_lambdas, int(capacityGB), int(peakMbps), latency_sensitive)
+    pkt = msg_packer.pack(*sampleMsg)
+    sock.sendall(pkt)
 
-  # send register request to controller
-  msg_packer = struct.Struct(REQ_STRUCT_FORMAT + "i" + str(len(jobname)) + "s" + "iiih")
-  msgLen = REQ_LEN_HDR + INT + len(jobname) + 3*INT + SHORT
-  sampleMsg = (msgLen, TICKET, RPC_JOB_CMD, JOB_CMD, REGISTER_OPCODE, len(jobname), jobname.encode('utf-8'), \
-                 num_lambdas, int(capacityGB), int(peakMbps), latency_sensitive)
-  pkt = msg_packer.pack(*sampleMsg)
-  sock.sendall(pkt)
-
-  # get jobid response
-  data = sock.recv(RESP_LEN_BYTES + INT)
-  resp_packer = struct.Struct(RESP_STRUCT_FORMAT + "i")
-  [length, ticket, type_, err, opcode, jobIdNum] = resp_packer.unpack(data)
-  if err != 0:
-    jobid = None
-    print("Error registering job: ", err)
-  else:
-    jobid = jobname
-    print("Registered jobid ", jobid)
-  sock.close()
+    # get jobid response
+    data = sock.recv(RESP_LEN_BYTES + INT)
+    resp_packer = struct.Struct(RESP_STRUCT_FORMAT + "i")
+    [length, ticket, type_, err, opcode, jobIdNum] = resp_packer.unpack(data)
+    if err != 0:
+      jobid = None
+      print("Error registering job: ", err)
+      sock.close()
+      break
+    elif int(jobIdNum) == 1111:
+      time.sleep(10)
+      sock.close()
+      continue
+    else:
+      jobid = jobname
+      print("Registered jobid ", jobid)
+      sock.close()
+      break
   return jobid
 
 
@@ -153,6 +163,29 @@ def put_buffer(pocket, src, len, dst_filename, jobid, PERSIST_AFTER_JOB=False):
 
   return res
 
+def put_buffer_bytes(pocket, src, length, dst_filename, jobid, PERSIST_AFTER_JOB=False):
+  '''
+  Send a PUT request to Pocket to write key
+
+  :param pocket:           pocketHandle returned from connect()
+  :param str src: 	   name of local object containing data to PUT
+  :param str dst_filename: name of file/key in Pocket which writing to
+  :param str jobid:        id unique to this job, used to separate keyspace for job
+  :param PERSIST_AFTER_JOB:optional hint, if True, data written to table persisted after job done
+  :return: the Pocket dispatcher response
+  '''
+
+  if jobid:
+    jobid = "/" + jobid
+
+  if PERSIST_AFTER_JOB:
+    set_filename = jobid + "-persist/" + dst_filename
+  else:
+    set_filename = jobid + "/" + dst_filename
+
+  res = pocket.PutBufferBytes(src, length, set_filename, False)
+
+  return res
 
 def get(pocket, src_filename, dst_filename, jobid, DELETE_AFTER_READ=False):
   '''
@@ -208,6 +241,34 @@ def get_buffer(pocket, src_filename, dst, len, jobid, DELETE_AFTER_READ=False):
     res = delete(pocket, src_filename, jobid);
 
   return res
+
+def get_buffer_bytes(pocket, src_filename, len, jobid, DELETE_AFTER_READ=False):
+  '''
+  Send a GET request to Pocket to read key
+
+  :param pocket:           pocketHandle returned from connect()
+  :param str src_filename: name of file/key in Pocket from which reading
+  :param str dst: name of local object  where want to store data from GET
+  :param str jobid:        id unique to this job, used to separate keyspace for job
+  :param DELETE_AFTER_READ:optional hint, if True, data deleted after job done
+  :return: the Pocket dispatcher response
+  '''
+
+  if jobid:
+    jobid = "/" + jobid
+
+  get_filename = jobid + "/" + src_filename
+
+  res = pocket.GetBufferBytes(len, get_filename)
+  #if res != 0:
+  #  print("GET BUFFER failed!")
+  #  return res
+
+  #if DELETE_AFTER_READ:
+  #  res = delete(pocket, src_filename, jobid);
+
+  return res
+
 
 
 def lookup(pocket, src_filename, jobid):

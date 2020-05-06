@@ -28,7 +28,7 @@ def partition_data():
         taskId = key['taskId']
         # 1T
         #totalInputs = 10000
-        totalInputs = 5
+        totalInputs = key['total_input']
         inputsPerTask = key['inputs']
         taskPerRound = key['taskPerRound']
         rounds = (inputsPerTask + taskPerRound - 1) / taskPerRound
@@ -163,21 +163,19 @@ def partition_data():
                     keyname = "shuffle-part-" + str(mapId) + "-" + str(i)
                     m = hashlib.md5()
                     m.update(keyname.encode('utf-8'))
-                    randomized_keyname = "shuffle-" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(i) + "ok"
+                    randomized_keyname = "shuffle-" + m.hexdigest()[:8] + "-part-" + str(mapId) + "-" + str(i)
                     print("The name of the key to write is: " + randomized_keyname)
-                    bytes_body = np.asarray(outputs[ps[i]]).tostring()
+                    bytes_body = np.asarray(outputs[ps[i]]).tobytes()
                     print("Hey top top " + str(len(bytes_body)))
+                    datasize = 1700000
                     #print(body)
                     #body = bytes_body.decode('ascii')
                     body = b64encode(bytes_body).decode('utf-8')
-                    half = len(body)
-                    print("Hey top")
+                    body = body.ljust(datasize, '=')
                     print("Byte to be written: " + str(len(body)))
-                    print("Hey bottom")
+
+                    print("Last ten bits after padding: " + body[-10:])
                     pocket.put_buffer(pocket_namenode, body, len(body), randomized_keyname, jobid)
-                    datasize = 1024
-                    text  = 'a' * datasize
-                    #r = pocket.put_buffer(pocket_namenode, text, datasize, randomized_keyname, jobid)
 
             writer_keylist = []
             key_per_client = (numPartitions + number_of_clients - 1) / number_of_clients
@@ -201,13 +199,9 @@ def partition_data():
             print("(" + str(taskId) + ")" + 'last write time = ' + str(twait_end - t3))
             write_time = twait_end - t3
         read_pool.close()
-        print("(" + str(taskId) + ")" + "closing read pool")
         write_pool.close()
-        print("(" + str(taskId) + ")" + "closing write pool")
         read_pool.join()
-        print("(" + str(taskId) + ")" + "read pool joined")
         write_pool.join()
-        print("(" + str(taskId) + ")" + "write pool joined")
         end_of_function = time.time()
         print("(" + str(taskId) + ")" + "Exciting this function")
         return begin_of_function, end_of_function, read_time, work_time, write_time
@@ -223,7 +217,7 @@ def partition_data():
 
     pocket_job_name = "job" + str(job_number)
     print("Pocket job name " + pocket_job_name)
-    jobid = pocket.register_job(pocket_job_name, capacityGB=1)
+    jobid = pocket.register_job(pocket_job_name, capacityGB=55)
 
     for i in range(numTasks):
         keylist.append({'taskId': i,
@@ -231,13 +225,14 @@ def partition_data():
                         'parts': numPartitions,
                         'taskPerRound': taskPerRound,
                         'bucket': "yupeng-pywren",
-                        'job_number': job_number})
+                        'job_number': job_number,
+                        'total_input':numTasks})
 
     print("Mapping all the functions")
     for i in range(numTasks):
         run_command(keylist[i])
 
-    pocket.deregister_job(jobid)
+    #pocket.deregister_job(jobid)
 
 if __name__ == '__main__':
     partition_data()

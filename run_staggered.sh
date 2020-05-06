@@ -1,6 +1,6 @@
-stagger_duration=${1:-"35"}
-for i in {1..5}; do
-  bash shuffle_50g.sh staggered_$i &
+stagger_duration=50
+for i in {1..2}; do
+  bash shuffle_50g.sh $i  &
   sleep $stagger_duration
 done
 wait
