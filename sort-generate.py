@@ -15,6 +15,7 @@ if __name__ == "__main__":
 
 
     def run_command(key):
+        print("Initially the key is: " + str(key))
         pywren.wrenlogging.default_config()
         logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ if __name__ == "__main__":
         subprocess.check_output(["chmod", "a+x", "/tmp/gensort"])
 
         for i in range(0, 5):
-            number_of_records = 1000 * 1000
+            number_of_records = 1250 * 1000
             begin = key * number_of_records
             data = subprocess.check_output(["/tmp/gensort",
                                             "-b" + str(begin),
@@ -39,9 +40,10 @@ if __name__ == "__main__":
             keyname = "input/part-" + str(key)
             m = hashlib.md5()
             m.update(keyname.encode('utf-8'))
+            logging.info("Here is the key! " + str(key))
             randomized_keyname = "input/" + m.hexdigest()[:8] + "-part-" + str(key)
             put_start = time.time()
-            client.put_object(Body=data, Bucket="yupeng-pywren", Key=randomized_keyname)
+            client.put_object(Body=data, Bucket="yupeng-pywren-0", Key=randomized_keyname)
             put_end = time.time()
             logger.info(str(key) + " th object uploaded using " + str(put_end - put_start) + " seconds.")
             gc.collect()
@@ -50,7 +52,7 @@ if __name__ == "__main__":
 
     wrenexec = pywren.default_executor()
     num_of_files = int(sys.argv[1])
-    print("Generating " + str(100 * int(num_of_files)) + " Mb input dataset.")
+    print("Generating " + str(62.5 * int(num_of_files)) + " Mb input dataset.")
     passed_tasks = range(0, num_of_files, 5)
 
     fut = wrenexec.map(run_command, passed_tasks)

@@ -5,10 +5,7 @@ import time
 import logging
 from multiprocessing.pool import ThreadPool
 
-from six.moves import cPickle as pickle
 import hashlib
-import pywren
-from redis import StrictRedis
 
 def write_data():
     def run_command(key):
@@ -21,7 +18,6 @@ def write_data():
                         'total_time': total_time,
                         'redis': redisnode})
         """
-        pywren.wrenlogging.default_config('INFO')
         begin_of_function = time.time()
         logger = logging.getLogger(__name__)
         logger.info("taskId = " + str(key['taskId']))
@@ -31,13 +27,7 @@ def write_data():
         process_time = int(key['process_time'])
         total_time = int(key['total_time'])
 
-        rs = []
-        for hostname in key['redis'].split(";"):
-            r1 = StrictRedis(host=hostname, port=6379, db=0).pipeline()
-            rs.append(r1)
-        #r1 = StrictRedis(host="ec2-34-219-42-73.us-west-2.compute.amazonaws.com", port=6379, db=0).pipeline()
-        #rs.append(r1)
-        nrs = len(rs)
+        nrs = 1
 
         [read_time, work_time, write_time] = [0] * 3
         start_time = time.time()
@@ -76,12 +66,12 @@ def write_data():
                 randomized_keyname = str(jobID) + "-" + str(taskID) + '-' + m.hexdigest()[:8] + '-' + str(count)
                 #logger.info("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
                 start = time.time()
-                #logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
-                rs[ridx].set(randomized_keyname, body)
+                logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
+                #rs[ridx].set(randomized_keyname, body)
                 end = time.time()
-                #logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
-                for r in rs:
-                    r.execute()
+                logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
+                #for r in rs:
+                #    r.execute()
                 throughput_total += end - start
                 throughput_nops += 1
                 if end - start_time >= throughput_count:
@@ -111,6 +101,7 @@ def write_data():
         if len(write_pool_handler_container) > 0:
             write_pool_handler = write_pool_handler_container.pop()
             ret = write_pool_handler.get()
+            print(ret)
             twait_end = time.time()
             write_time = twait_end - start_time
         write_pool.close()
@@ -136,20 +127,20 @@ def write_data():
                         'total_time': total_time,
                         'redis': redisnode})
 
-    wrenexec = pywren.default_executor()
-    futures = wrenexec.map(run_command, keylist)
-    pywren.wait(futures)
-    results = [f.result() for f in futures]
+    run_command(keylist[0])
+    #wrenexec = pywren.default_executor()
+    #futures = wrenexec.map(run_command, keylist)
+    #pywren.wait(futures)
+    #results = [f.result() for f in futures]
 
-    print("Write " + str(job_number))
-    run_statuses = [f.run_status for f in futures]
-    invoke_statuses = [f.invoke_status for f in futures]
-    res = {'results': results,
-           'run_statuses': run_statuses,
-           'invoke_statuses': invoke_statuses}
-    filename = "redis-write-" + str(job_numbder) + ".pickle.breakdown"
-    pickle.dump(res, open(filename, 'wb'))
-    return res
+    #print("Write " + str(job_number))
+    #run_statuses = [f.run_status for f in futures]
+    #invoke_statuses = [f.invoke_status for f in futures]
+    #res = {'results': results,
+    #       'run_statuses': run_statuses,
+    #       'invoke_statuses': invoke_statuses}
+    #filename = "redis-write-" + ".pickle.breakdown"
+    #pickle.dump(res, open(filename, 'wb'))
 
 
 if __name__ == '__main__':
