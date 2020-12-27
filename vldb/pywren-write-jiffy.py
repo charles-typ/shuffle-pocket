@@ -71,10 +71,10 @@ def write_data():
                 randomized_keyname = str(jobID) + "-" + str(taskID) + '-' + m.hexdigest()[:8] + '-' + str(count)
                 #logger.info("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
                 start = time.time()
-                logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
+                #logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
                 table.put(randomized_keyname, body)
                 end = time.time()
-                logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E")
+                #logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E")
                 throughput_total += end - start
                 throughput_nops += 1
                 if end - start_time >= throughput_count:
@@ -83,6 +83,7 @@ def write_data():
                     throughput_nops = 0
                     throughput_count += throughput_step
                     throughput_total = 0
+
             logger.info("Write finish here: " + str(time.time()))
             return ret
 
