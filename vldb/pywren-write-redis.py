@@ -33,7 +33,7 @@ def write_data():
 
         rs = []
         for hostname in key['redis'].split(";"):
-            r1 = StrictRedis(host=hostname, port=6379, db=0).pipeline()
+            r1 = StrictRedis(host=hostname, port=6379, db=0)
             rs.append(r1)
         #r1 = StrictRedis(host="ec2-34-219-42-73.us-west-2.compute.amazonaws.com", port=6379, db=0).pipeline()
         #rs.append(r1)
@@ -78,10 +78,10 @@ def write_data():
                 start = time.time()
                 #logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
                 rs[ridx].set(randomized_keyname, body)
-                end = time.time()
                 #logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
-                for r in rs:
-                    r.execute()
+                #for r in rs:
+                #    r.execute()
+                end = time.time()
                 throughput_total += end - start
                 throughput_nops += 1
                 if end - start_time >= throughput_count:
