@@ -35,6 +35,8 @@ def write_data():
         for hostname in key['redis'].split(";"):
             r1 = StrictRedis(host=hostname, port=6379, db=0).pipeline()
             rs.append(r1)
+        #r1 = StrictRedis(host="ec2-34-219-42-73.us-west-2.compute.amazonaws.com", port=6379, db=0).pipeline()
+        #rs.append(r1)
         nrs = len(rs)
 
         [read_time, work_time, write_time] = [0] * 3
@@ -74,10 +76,10 @@ def write_data():
                 randomized_keyname = str(jobID) + "-" + str(taskID) + '-' + m.hexdigest()[:8] + '-' + str(count)
                 #logger.info("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
                 start = time.time()
-                logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
+                #logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
                 rs[ridx].set(randomized_keyname, body)
                 end = time.time()
-                logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
+                #logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
                 for r in rs:
                     r.execute()
                 throughput_total += end - start

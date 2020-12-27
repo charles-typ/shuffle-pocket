@@ -5,10 +5,10 @@ import time
 import logging
 from multiprocessing.pool import ThreadPool
 
-import boto3
 from six.moves import cPickle as pickle
 import hashlib
 import pywren
+from redis import StrictRedis
 
 def write_data():
     def run_command(key):
@@ -19,9 +19,8 @@ def write_data():
                         'write_element_size': write_element_size,
                         'process_time': process_time,
                         'total_time': total_time,
-                        'bucket': bucketName})
+                        'redis': redisnode})
         """
-        bucketName = key['bucket']
         pywren.wrenlogging.default_config('INFO')
         begin_of_function = time.time()
         logger = logging.getLogger(__name__)
@@ -32,6 +31,14 @@ def write_data():
         process_time = int(key['process_time'])
         total_time = int(key['total_time'])
 
+        rs = []
+        #for hostname in key['redis'].split(";"):
+        #    r1 = StrictRedis(host=hostname, port=6379, db=0).pipeline()
+        #    rs.append(r1)
+        #r1 = StrictRedis(host="172.31.12.131", port=6379, db=0).pipeline()
+        #rs.append(r1)
+        #nrs = len(rs)
+        nrs = 1
 
         [read_time, work_time, write_time] = [0] * 3
         start_time = time.time()
@@ -46,7 +53,6 @@ def write_data():
         logger.info("Process finish here: " + str(time.time()))
 
         def write_work_client(writer_key):
-            client = boto3.client('s3', 'us-east-2')
             start_time = time.time()
             client_id = int(writer_key['client_id'])
             taskID = writer_key['taskId']
@@ -67,13 +73,16 @@ def write_data():
                 keyname = str(jobID) + "-" + str(taskID) + "-" + str(count)
                 m = hashlib.md5()
                 m.update(keyname.encode('utf-8'))
+                ridx = int(m.hexdigest()[:8], 16) % nrs
                 randomized_keyname = str(jobID) + "-" + str(taskID) + '-' + m.hexdigest()[:8] + '-' + str(count)
                 #logger.info("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
                 start = time.time()
-                logger.info("[S3] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
-                client.put_object(Bucket=bucketName, Key=randomized_keyname, Body=body)
+                logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
+                #rs[ridx].set(randomized_keyname, body)
                 end = time.time()
-                logger.info("[S3] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
+                logger.info("[REDIS] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
+                #for r in rs:
+                #    r.execute()
                 throughput_total += end - start
                 throughput_nops += 1
                 if end - start_time >= throughput_count:
@@ -82,6 +91,7 @@ def write_data():
                     throughput_nops = 0
                     throughput_count += throughput_step
                     throughput_total = 0
+
             logger.info("Write finish here: " + str(time.time()))
             return ret
 
@@ -114,7 +124,7 @@ def write_data():
     write_element_size = int(sys.argv[3])
     process_time = int(sys.argv[4]) # microseconds
     total_time = int(sys.argv[5])
-    bucketName = sys.argv[6]
+    redisnode = sys.argv[6]
 
     keylist = []
 
@@ -125,7 +135,7 @@ def write_data():
                         'write_element_size': write_element_size,
                         'process_time': process_time,
                         'total_time': total_time,
-                        'bucket': bucketName})
+                        'redis': redisnode})
 
     wrenexec = pywren.default_executor()
     futures = wrenexec.map(run_command, keylist)
