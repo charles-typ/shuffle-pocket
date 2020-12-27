@@ -3,7 +3,7 @@ export num_tasks=200
 export write_element_size=131072
 export process_time=0
 export total_time=20
-export directory_server=10.10.10.1
+export directory_server='172.31.6.255'
 
 echo python pywren_write_jiffy.py $num_tasks 1 $write_element_size $process_time 100 $directory_server 
 python pywren_write_jiffy.py $num_tasks 1 $write_element_size $process_time 100 $directory_server &

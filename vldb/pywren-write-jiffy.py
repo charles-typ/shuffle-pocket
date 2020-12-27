@@ -9,6 +9,7 @@ from six.moves import cPickle as pickle
 import hashlib
 import pywren
 from jiffy import JiffyClient
+import jiffy
 
 
 def write_data():
