@@ -46,7 +46,7 @@ def write_data():
         logger.info("Process finish here: " + str(time.time()))
 
         def write_work_client(writer_key):
-            client = boto3.client('s3', 'us-east-2')
+            client = boto3.client('s3', 'us-west-2')
             start_time = time.time()
             client_id = int(writer_key['client_id'])
             taskID = writer_key['taskId']
@@ -114,7 +114,7 @@ def write_data():
     write_element_size = int(sys.argv[3])
     process_time = int(sys.argv[4]) # microseconds
     total_time = int(sys.argv[5])
-    bucketName = sys.argv[6]
+    bucketName = sys.argv[6] + "-" + str(job_number)
 
     keylist = []
 
