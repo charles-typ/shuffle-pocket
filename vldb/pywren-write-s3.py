@@ -138,7 +138,7 @@ def write_data():
     res = {'results': results,
            'run_statuses': run_statuses,
            'invoke_statuses': invoke_statuses}
-    filename = "redis-write-" + ".pickle.breakdown"
+    filename = "redis-write-" + str(job_number) + ".pickle.breakdown"
     pickle.dump(res, open(filename, 'wb'))
     return res
 
