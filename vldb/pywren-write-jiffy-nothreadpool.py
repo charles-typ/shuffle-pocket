@@ -8,7 +8,6 @@ import hashlib
 from jiffy import JiffyClient
 
 
-logging.basicConfig(level=logging.DEBUG)
 
 def write_data():
     def run_command(key):
@@ -23,7 +22,7 @@ def write_data():
         """
         begin_of_function = time.time()
         logger = logging.getLogger(__name__)
-        logger.info("taskId = " + str(key['taskId']))
+        print("taskId = " + str(key['taskId']))
         taskId = key['taskId']
         jobid_int = int(key['job_number'])
         write_element_size = int(key['write_element_size'])
@@ -40,7 +39,7 @@ def write_data():
         time.sleep(process_time)
 
 
-        logger.info("Process finish here: " + str(time.time()))
+        print("Process finish here: " + str(time.time()))
 
         def write_work_client(writer_key):
             start_time = time.time()
@@ -66,12 +65,12 @@ def write_data():
                 m = hashlib.md5()
                 m.update(keyname.encode('utf-8'))
                 randomized_keyname = str(jobID) + "-" + str(taskID) + '-' + m.hexdigest()[:8] + '-' + str(count)
-                #logger.info("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
+                #print("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
                 start = time.time()
-                logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
+                print("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
                 table.put(randomized_keyname, body)
                 end = time.time()
-                logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E")
+                print("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E")
                 throughput_total += end - start
                 throughput_nops += 1
                 if end - start_time >= throughput_count:
@@ -81,7 +80,7 @@ def write_data():
                     throughput_count += throughput_step
                     throughput_total = 0
 
-            logger.info("Write finish here: " + str(time.time()))
+            print("Write finish here: " + str(time.time()))
             return ret
 
         writer_keylist = []
@@ -96,7 +95,7 @@ def write_data():
         start_time = time.time()
         ret = write_work_client(writer_keylist[0])
 
-        logging.info("Write task launched")
+        print("Write task launched")
 
         print(ret)
         twait_end = time.time()
