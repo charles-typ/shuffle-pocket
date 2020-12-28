@@ -80,7 +80,9 @@ def write_data():
                 end = time.time()
                 if first_flag is False:
                     first_flag = True
-                ret.append((start, end))
+                    ret.append((start, end))
+                if end - start > 1:
+                    ret.append((start, 1111111111111))
                 #logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E")
                 throughput_total += end - start
                 throughput_nops += 1
