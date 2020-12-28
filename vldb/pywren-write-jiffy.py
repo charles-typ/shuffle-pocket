@@ -66,6 +66,7 @@ def write_data():
             throughput_nops = 0
             ret = []
             ret.append((open_start, open_end - open_start))
+            first_flag = False
             while time.time() < start_time + total_time:
                 count = count + 1
                 keyname = str(jobID) + "-" + str(taskID) + "-" + str(count)
@@ -77,6 +78,9 @@ def write_data():
                 #logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
                 table.put(randomized_keyname, body)
                 end = time.time()
+                if first_flag is False:
+                    first_flag = True
+                ret.append((start, end))
                 #logger.info("[HONEYCOMB] [" + str(jobID) + "] " + str(time.time_ns()) + " " + str(taskID) + " " + str(len(body)) + " write " + "E")
                 throughput_total += end - start
                 throughput_nops += 1
