@@ -9,7 +9,6 @@ from six.moves import cPickle as pickle
 import hashlib
 import pywren
 from jiffy import JiffyClient
-import jiffy
 
 
 def write_data():
@@ -58,12 +57,15 @@ def write_data():
             client_id = int(client_id)
             count = 0
             data_path = "/job" + str(jobID)
+            open_start = time.time()
             table = em.open_or_create_hash_table(data_path,"local://tmp", 1,1)
+            open_end = time.time()
             throughput_step = 1
             throughput_count = 1
             throughput_total = 0
             throughput_nops = 0
             ret = []
+            ret.append((open_start, open_end - open_start))
             while time.time() < start_time + total_time:
                 count = count + 1
                 keyname = str(jobID) + "-" + str(taskID) + "-" + str(count)
