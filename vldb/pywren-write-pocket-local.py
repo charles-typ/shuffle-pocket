@@ -23,6 +23,7 @@ def write_data():
         logger.info("taskId = " + str(key['taskId']))
         taskId = key['taskId']
         jobid_int = int(key['job_number'])
+        pocket_job_name = key['pocket_job_name']
         write_element_size = int(key['write_element_size'])
         process_time = int(key['process_time'])
         total_time = int(key['total_time'])
@@ -63,18 +64,12 @@ def write_data():
                 randomized_keyname = str(jobID) + "-" + str(taskID) + '-' + m.hexdigest()[:8] + '-' + str(count)
                 #logger.info("(" + str(taskId) + ")" + "The name of the key to write is: " + randomized_keyname)
                 start = time.time()
-                logger.info("[POCKET] [" + str(jobID) + "] " + str(start) + " " + str(taskID) + " " + str(len(body)) + " write " + "S")
-                a = 0
-                for i in range(1000000):
-                    a = a + 1
+                print("[POCKET] [" + str(jobID) + "] " + str(start) + " " + str(taskID) + " " + randomized_keyname + " " + str(len(body)) + " " + str(pocket_job_name) + " write ")
                 end = time.time()
-                logger.info("[POCKET] [" + str(jobID) + "] " + str(end) + " " + str(taskID) + " " + str(len(body)) + " write " + "E ")
                 throughput_total += end - start
                 throughput_nops += 1
                 if end - start_time >= throughput_count:
                     throughput = throughput_nops / throughput_total
-                    print(throughput_nops)
-                    print(throughput_total)
                     ret.append((end, throughput))
                     throughput_nops = 0
                     throughput_count += throughput_step
@@ -111,8 +106,17 @@ def write_data():
     write_element_size = int(sys.argv[3])
     process_time = int(sys.argv[4]) # microseconds
     total_time = int(sys.argv[5])
+    isDRAM = int(sys.argv[6])
 
     keylist = []
+    if isDRAM:
+        pocket_job_name = "dram-943055"
+    else:
+        pocket_job_name = "nvme-71029"
+    #print("Pocket job name " + pocket_job_name)
+    #jobid = pocket.register_job(pocket_job_name, capacityGB=53, peakMbps=40000)
+    #assert jobid == pocket_job_name
+
 
     for i in range(numTasks):
         keylist.append({'taskId': i,
@@ -120,7 +124,8 @@ def write_data():
                         'total_input': numTasks,
                         'write_element_size': write_element_size,
                         'process_time': process_time,
-                        'total_time': total_time})
+                        'total_time': total_time,
+                        'pocket_job_name': pocket_job_name})
 
     ret_vector = []
     for key in keylist:
