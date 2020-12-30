@@ -144,7 +144,7 @@ def write_data():
     res = {'results': results,
            'run_statuses': run_statuses,
            'invoke_statuses': invoke_statuses}
-    filename = "pocket-write-" + ".pickle.breakdown"
+    filename = "pocket-write-" + str(job_number) + ".pickle.breakdown"
     pickle.dump(res, open(filename, 'wb'))
     return res
 
